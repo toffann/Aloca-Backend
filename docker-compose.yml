@@ -1,0 +1,40 @@
+services:
+  aloca-db:
+    image: mysql:8.0
+    container_name: aloca_mysql_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_123
+      MYSQL_DATABASE: aloca_management_db
+      MYSQL_USER: aloca_user
+      MYSQL_PASSWORD: aloca_password_123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - aloca-network
+
+  aloca-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aloca_express_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+      - DATABASE_URL=mysql://aloca_user:aloca_password_123@aloca-db:3306/aloca_management_db
+    depends_on:
+      - aloca-db
+    networks:
+      - aloca-network
+
+volumes:
+  mysql_data:
+
+networks:
+  aloca-network:
+    driver: bridge
