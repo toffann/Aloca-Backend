@@ -1,14 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const healthController = require('../controllers/healthController');
-const helloController = require('../controllers/helloController');
 
-// Define API routes
+// Health check
 router.get('/health', healthController.checkHealth);
 
-// Dummy API for testing
-router.get('/hello', helloController.getHello);
+// Feature routes
+router.use('/auth',      require('./auth.routes'));
+router.use('/kantong',   require('./kantong.routes'));
+router.use('/transaksi', require('./transaksi.routes'));
+router.use('/kategori',  require('./kategori.routes'));
+router.use('/admin',     require('./admin.routes'));
 
-router.get('/login', )
-// Export router
 module.exports = router;

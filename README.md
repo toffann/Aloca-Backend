@@ -1,115 +1,390 @@
-# Aloca Backend
+# Aloca.id — Backend API
 
-Backend API service for Aloca, built with Node.js, Express, and MySQL.
+REST API untuk aplikasi manajemen keuangan **Aloca.id**, dibangun dengan **Node.js + Express** dan **MySQL**.
+
+---
+
+## Daftar Isi
+
+- [Deskripsi](#deskripsi)
+- [Prerequisites](#prerequisites)
+- [Instalasi (Tanpa Docker)](#instalasi-tanpa-docker)
+- [Instalasi (Dengan Docker)](#instalasi-dengan-docker)
+- [Konfigurasi .env](#konfigurasi-env)
+- [Migrasi Database](#migrasi-database)
+- [Menjalankan Aplikasi](#menjalankan-aplikasi)
+- [API Endpoints](#api-endpoints)
+- [Struktur Folder](#struktur-folder)
+
+---
+
+## Deskripsi
+
+Aloca.id Backend menyediakan REST API untuk:
+
+- **Autentikasi** — register, login dengan JWT
+- **Manajemen Kantong** — buat, edit, hapus kantong keuangan per user
+- **Transaksi** — catat pemasukan, pengeluaran, dan pindah saldo antar kantong
+- **Kategori** — admin bisa membuat kategori pemasukan & pengeluaran beserta upload icon
+- **Dashboard Admin** — statistik total user, transaksi, dan nominal
+
+---
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed on your machine:
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
+Pastikan sudah terinstall di komputer kamu:
 
-## Running the Project with Docker
+| Tools | Versi Minimum | Keterangan |
+|-------|--------------|------------|
+| [Node.js](https://nodejs.org) | v18+ | Runtime JavaScript |
+| [npm](https://www.npmjs.com) | v9+ | Package manager (ikut dengan Node.js) |
+| [MySQL](https://www.mysql.com) | v8.0 | Database (atau via Docker) |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop) | Latest | Opsional, untuk setup cepat |
+| [Git](https://git-scm.com) | Latest | Version control |
 
-The easiest way to run the application along with its database is using Docker Compose.
+---
 
-### 1. Start the Application
+## Instalasi (Tanpa Docker)
 
-To start the database and backend services in the background, run the following command in the root directory of the project:
+### 1. Clone Repository
 
 ```bash
-docker compose up -d
+git clone <url-repository-backend>
+cd Aloca-Backend
 ```
 
-*(Note: Older versions of Docker may require `docker-compose up -d` with a hyphen).*
-
-This command will:
-1. Pull the MySQL 8.0 image and start the database container (`aloca-db`).
-2. Build the Node.js application image based on the `Dockerfile`.
-3. Start the backend container (`aloca-backend`).
-4. Set up the necessary networks and volumes.
-
-### 2. Verify the Services are Running
-
-Check the status of your containers using:
+### 2. Install Dependensi
 
 ```bash
+npm install
+```
+
+### 3. Setup Database MySQL
+
+Buat database dan user di MySQL kamu:
+
+```sql
+CREATE DATABASE aloca_management_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'aloca_user'@'localhost' IDENTIFIED BY 'aloca_password_123';
+GRANT ALL PRIVILEGES ON aloca_management_db.* TO 'aloca_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+### 4. Konfigurasi .env
+
+Salin file contoh dan sesuaikan nilainya:
+
+```bash
+cp .env.example .env
+```
+
+Buka file `.env` lalu isi sesuai konfigurasi lokal kamu:
+
+```env
+PORT=3000
+NODE_ENV=development
+
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=aloca_user
+DB_PASSWORD=aloca_password_123
+DB_NAME=aloca_management_db
+
+# WAJIB diganti — gunakan string acak yang panjang
+JWT_SECRET=isi_dengan_string_rahasia_yang_sangat_panjang_dan_acak
+JWT_EXPIRES_IN=7d
+
+CORS_ORIGIN=http://localhost:5173
+```
+
+> ⚠️ **Penting:** Jangan pernah commit file `.env` ke repository. File ini sudah ada di `.gitignore`.
+
+### 5. Migrasi Database
+
+Jalankan file SQL di folder `migrate/` secara berurutan:
+
+```bash
+# Menggunakan MySQL CLI
+mysql -u aloca_user -p aloca_management_db < migrate/001_create_users_table.sql
+mysql -u aloca_user -p aloca_management_db < migrate/002_create_kategori_tables.sql
+mysql -u aloca_user -p aloca_management_db < migrate/003_create_kantong_table.sql
+mysql -u aloca_user -p aloca_management_db < migrate/004_create_saldo_table.sql
+mysql -u aloca_user -p aloca_management_db < migrate/005_create_log_transaksi_table.sql
+
+# Seed data demo (opsional, tapi disarankan)
+mysql -u aloca_user -p aloca_management_db < migrate/006_seed_users.sql
+mysql -u aloca_user -p aloca_management_db < migrate/007_seed_kategori.sql
+```
+
+| File | Tipe | Isi |
+|------|------|-----|
+| `001` | Migration | Tabel `users` |
+| `002` | Migration | Tabel `kategori_pemasukan` & `kategori_pengeluaran` |
+| `003` | Migration | Tabel `kantong` |
+| `004` | Migration | Tabel `saldo` |
+| `005` | Migration | Tabel `log_transaksi` |
+| `006` | **Seed** | 3 akun demo (admin, user1, user2) |
+| `007` | **Seed** | 7 kategori transaksi default |
+
+> File seed menggunakan `INSERT IGNORE` — aman dijalankan berulang kali tanpa duplikasi data.
+
+---
+
+## Instalasi (Dengan Docker) — Cara Termudah
+
+Cara ini akan menjalankan **MySQL + Backend + phpMyAdmin** sekaligus tanpa setup manual.
+
+### 1. Clone Repository
+
+```bash
+git clone <url-repository-backend>
+cd Aloca-Backend
+```
+
+### 2. Jalankan Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+Docker akan otomatis:
+- Menjalankan MySQL 8.0 di port **3306**
+- Menjalankan backend Express di port **3000**
+- Menjalankan phpMyAdmin di port **8080**
+- Menjalankan semua file migrasi SQL secara otomatis
+
+### 3. Verifikasi
+
+```bash
+# Cek container berjalan
 docker compose ps
+
+# Cek log backend
+docker compose logs aloca-backend --tail=20
 ```
 
-You should see two containers running:
-- `aloca_mysql_db` (listening on port 3306)
-- `aloca_express_backend` (listening on port 3000)
-
-The backend API is now accessible at: **http://localhost:3000**
-
-### 3. Database Management (phpMyAdmin)
-
-A phpMyAdmin instance is included to easily manage your MySQL database via a web interface. 
-
-After running `docker compose up -d`, you can access it at: **http://localhost:8080**
-
-**Login Credentials:**
+Akses phpMyAdmin di `http://localhost:8080` dengan:
 - **Username:** `root`
 - **Password:** `root_password_123`
-*(Or use `aloca_user` / `aloca_password_123`)*
 
-### 4. Database Migrations
+> **Catatan Docker:** Jika kamu mengubah kode backend setelah container berjalan, rebuild dengan:
+> ```bash
+> docker compose build --no-cache aloca-backend
+> docker compose up -d --force-recreate aloca-backend
+> ```
 
-Currently, migrations are handled via raw SQL files located in the `migrate/` directory.
+---
 
-**Option A: Auto-Initialization**
-If you are starting the database container for the *very first time* (i.e., the volume is empty), Docker will automatically execute any `.sql` files found in the `migrate/` directory.
+## Menjalankan Aplikasi
 
-**Option B: Manual Execution (Recommended for existing databases)**
-To run a migration file manually into a database that is already running, use the following command in your terminal (adjust the filename as needed):
+### Development (hot-reload)
 
-*Windows (PowerShell):*
-```powershell
-Get-Content migrate\001_create_users_table.sql | docker exec -i aloca_mysql_db mysql -ualoca_user -paloca_password_123 aloca_management_db
-```
-
-*Linux / macOS:*
 ```bash
-docker exec -i aloca_mysql_db mysql -ualoca_user -paloca_password_123 aloca_management_db < migrate/001_create_users_table.sql
+npm run dev
 ```
 
-### 5. Viewing Logs
+Server akan berjalan di `http://localhost:3000` dengan nodemon (auto-restart saat file berubah).
 
-If you need to troubleshoot or check the application output, you can view the logs:
+### Production
 
-**To view all logs:**
 ```bash
-docker compose logs -f
+npm start
 ```
 
-**To view only backend logs:**
+### Verifikasi Server Berjalan
+
 ```bash
-docker compose logs -f aloca-backend
+curl http://localhost:3000/api/health
 ```
 
-**To view only database logs:**
-```bash
-docker compose logs -f aloca-db
-```
-*(Press `Ctrl + C` to exit the log view).*
-
-### 6. Stopping the Application
-
-To stop the containers without removing them:
-```bash
-docker compose stop
+Response yang diharapkan:
+```json
+{
+  "status": "success",
+  "message": "Backend aloca.id berbasis Express siap digunakan!"
+}
 ```
 
-To stop and remove the containers, networks, and volumes (this will **DELETE** your local database data):
-```bash
-docker compose down -v
-```
-*(Omit the `-v` flag if you want to preserve the database data for the next time you start it).*
+---
 
-## Environment Variables
-The application uses the following default environment variables in the `docker-compose.yml`:
-- `PORT`: 3000
-- `NODE_ENV`: development
-- Database User: `aloca_user`
-- Database Password: `aloca_password_123`
-- Database Name: `aloca_management_db`
+## API Endpoints
+
+### Autentikasi (Publik)
+
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| `POST` | `/api/auth/register` | Daftar akun baru |
+| `POST` | `/api/auth/login` | Login, mendapat JWT token |
+
+**Contoh body register:**
+```json
+{
+  "username": "johndoe",
+  "email": "john@example.com",
+  "password": "minimal6karakter"
+}
+```
+
+**Contoh body login:**
+```json
+{
+  "email": "john@example.com",
+  "password": "minimal6karakter"
+}
+```
+
+**Response login:**
+```json
+{
+  "status": "success",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": { "id": 1, "username": "johndoe", "email": "john@example.com", "role": "user" }
+  }
+}
+```
+
+### Endpoint Terproteksi (butuh header `Authorization: Bearer <token>`)
+
+| Method | Endpoint | Role | Deskripsi |
+|--------|----------|------|-----------|
+| `GET` | `/api/kantong` | User | Ambil semua kantong + saldo |
+| `POST` | `/api/kantong` | User | Buat kantong baru |
+| `PUT` | `/api/kantong/:id` | User | Edit kantong |
+| `DELETE` | `/api/kantong/:id` | User | Hapus kantong |
+| `GET` | `/api/transaksi` | User | Riwayat transaksi |
+| `POST` | `/api/transaksi/pemasukan` | User | Catat pemasukan |
+| `POST` | `/api/transaksi/pengeluaran` | User | Catat pengeluaran |
+| `POST` | `/api/transaksi/pindah-saldo` | User | Transfer antar kantong |
+| `GET` | `/api/kategori/pemasukan` | User | Lihat kategori pemasukan |
+| `GET` | `/api/kategori/pengeluaran` | User | Lihat kategori pengeluaran |
+| `POST` | `/api/kategori/pemasukan` | **Admin** | Tambah kategori + upload icon |
+| `DELETE` | `/api/kategori/pemasukan/:id` | **Admin** | Hapus kategori |
+| `POST` | `/api/kategori/pengeluaran` | **Admin** | Tambah kategori + upload icon |
+| `DELETE` | `/api/kategori/pengeluaran/:id` | **Admin** | Hapus kategori |
+| `GET` | `/api/admin/stats` | **Admin** | Statistik dashboard admin |
+
+### Membuat Akun Admin
+
+Setelah register normal, update role melalui MySQL:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'email_admin@example.com';
+```
+
+Kemudian **logout dan login ulang** agar JWT token baru menyertakan role `admin`.
+
+### Akun Demo (dari Seed)
+
+Jika sudah menjalankan `006_seed_users.sql`, akun berikut siap dipakai:
+
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@aloca.id` | `password123` | `admin` |
+| `user1@aloca.id` | `password123` | `user` |
+| `user2@aloca.id` | `password123` | `user` |
+
+---
+
+## Struktur Folder
+
+```
+Aloca-Backend/
+├── migrate/                    # File SQL migrasi database (jalankan berurutan)
+│   ├── 001_create_users_table.sql
+│   ├── 002_create_kategori_tables.sql
+│   ├── 003_create_kantong_table.sql
+│   ├── 004_create_saldo_table.sql
+│   └── 005_create_log_transaksi_table.sql
+│
+├── src/
+│   ├── app.js                  # Entry point — inisialisasi Express & server
+│   │
+│   ├── config/
+│   │   ├── database.js         # Konfigurasi connection pool MySQL2
+│   │   └── multer.js           # Konfigurasi upload file (icon kategori)
+│   │
+│   ├── controllers/            # Logic bisnis per fitur
+│   │   ├── authController.js
+│   │   ├── kantongController.js
+│   │   ├── transaksiController.js
+│   │   ├── kategoriController.js
+│   │   ├── adminController.js
+│   │   └── healthController.js
+│   │
+│   ├── middlewares/
+│   │   ├── authMiddleware.js   # verifyToken & verifyAdmin
+│   │   └── errorHandler.js     # Global error handler
+│   │
+│   ├── routes/                 # Definisi endpoint per fitur
+│   │   ├── index.js
+│   │   ├── auth.routes.js
+│   │   ├── kantong.routes.js
+│   │   ├── transaksi.routes.js
+│   │   ├── kategori.routes.js
+│   │   └── admin.routes.js
+│   │
+│   └── utils/
+│       └── responseHelper.js   # Helper format response JSON standar
+│
+├── uploads/                    # File icon yang diupload (auto-generated)
+│   └── icons/
+│
+├── .env                        # Konfigurasi lokal (jangan di-commit!)
+├── .env.example                # Template konfigurasi
+├── docker-compose.yml          # Setup Docker lengkap
+├── Dockerfile                  # Image Docker untuk backend
+└── package.json
+```
+
+---
+
+## Tips Tambahan
+
+### Format Response API
+
+Semua response mengikuti format standar:
+
+```json
+{
+  "status": "success",
+  "message": "Pesan deskriptif",
+  "data": { ... }
+}
+```
+
+Error response:
+
+```json
+{
+  "status": "error",
+  "message": "Pesan error",
+  "statusCode": 400
+}
+```
+
+### Troubleshooting Umum
+
+**`Error: ER_ACCESS_DENIED_ERROR`**
+→ Periksa `DB_USER` dan `DB_PASSWORD` di `.env`. Pastikan user MySQL sudah diberi akses ke database.
+
+**`Error: connect ECONNREFUSED 127.0.0.1:3306`**
+→ MySQL belum berjalan. Jalankan MySQL service atau `docker compose up -d aloca-db`.
+
+**Endpoint mengembalikan 403 Forbidden**
+→ Token JWT tidak memiliki role yang tepat. Pastikan sudah logout dan login ulang setelah mengubah role di database.
+
+**Upload icon gagal**
+→ Pastikan folder `uploads/icons/` bisa ditulis. Di Docker, ini sudah otomatis ditangani.
+
+### Variabel Environment Penting
+
+| Variabel | Wajib | Keterangan |
+|----------|-------|------------|
+| `DB_HOST` | ✅ | Host database (`localhost` atau nama service Docker) |
+| `DB_USER` | ✅ | Username MySQL |
+| `DB_PASSWORD` | ✅ | Password MySQL |
+| `DB_NAME` | ✅ | Nama database |
+| `JWT_SECRET` | ✅ | **Harus diganti** dengan string panjang dan acak di production |
+| `PORT` | ❌ | Default `3000` |
+| `CORS_ORIGIN` | ❌ | Default `*`, ganti ke URL frontend di production |

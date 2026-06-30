@@ -26,8 +26,15 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - NODE_ENV=development
-      - DATABASE_URL=mysql://aloca_user:aloca_password_123@aloca-db:3306/aloca_management_db
+      - NODE_ENV=production
+      - DB_HOST=aloca-db
+      - DB_PORT=3306
+      - DB_USER=aloca_user
+      - DB_PASSWORD=aloca_password_123
+      - DB_NAME=aloca_management_db
+      - JWT_SECRET=aloca_jwt_secret_super_panjang_dan_aman_2024
+      - JWT_EXPIRES_IN=7d
+      - CORS_ORIGIN=*
     depends_on:
       - aloca-db
     networks:
