@@ -11,30 +11,31 @@ const app = express();
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 
-// Log the CORS_ORIGIN for debugging
-const corsOrigin = process.env.CORS_ORIGIN;
-console.log(`CORS origin(s) configured for: ${corsOrigin || 'ANY (*)'}`);
+const allowedOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',') 
+  : ['https://aloca-frontend.vercel.app', 'https://alocaid.vercel.app'];
+
+console.log(`CORS origins didefinisikan untuk:`, allowedOrigins);
 
 const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    const allowedOrigins = (corsOrigin || '').split(',');
-
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       callback(null, true);
     } else {
-      console.error(`CORS Error: The origin ${origin} is not allowed.`);
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error('Akses diblokir oleh kebijakan CORS Aloca'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Tambahkan OPTIONS di sini
   credentials: true,
+  optionsSuccessStatus: 200 // Memastikan respon legacy browser (IE11) aman
 };
 
+// Pasang middleware CORS untuk semua rute
 app.use(cors(corsOptions));
+
+// JAWABAN UNTUK PREFLIGHT REQUEST: Otomatis setujui request OPTIONS sebelum masuk ke router
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -52,7 +53,7 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
-  await testConnection(); // Pastikan DB siap sebelum menerima request
+  await testConnection();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server Aloca berjalan di port ${PORT}`);
     console.log(`   Mode: ${process.env.NODE_ENV || 'development'}`);
