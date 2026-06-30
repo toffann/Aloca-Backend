@@ -12,7 +12,11 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./migrate:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - aloca-network
 
@@ -36,7 +40,9 @@ services:
       - JWT_EXPIRES_IN=7d
       - CORS_ORIGIN=*
     depends_on:
-      - aloca-db
+      aloca-db:
+        condition: service_healthy
+    command: sh -c "npm run migrate && npm start"
     networks:
       - aloca-network
 
