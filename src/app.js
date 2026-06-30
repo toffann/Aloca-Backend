@@ -11,26 +11,30 @@ const app = express();
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 
-// Mengambil list domain dari .env, atau pakai default jika .env kosong
-const allowedOrigins = process.env.CORS_ORIGIN 
-  ? process.env.CORS_ORIGIN.split(',') 
-  : ['https://aloca-frontend.vercel.app', 'https://alocaid.vercel.app'];
+// Log the CORS_ORIGIN for debugging
+const corsOrigin = process.env.CORS_ORIGIN;
+console.log(`CORS origin(s) configured for: ${corsOrigin || 'ANY (*)'}`);
 
-console.log(`CORS origins didefinisikan untuk:`, allowedOrigins);
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // Izinkan jika request berasal dari domain yang terdaftar, atau tanpa origin (seperti Postman)
-    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+    const allowedOrigins = (corsOrigin || '').split(',');
+
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Akses diblokir oleh kebijakan CORS Aloca'));
+      console.error(`CORS Error: The origin ${origin} is not allowed.`);
+      callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
 
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
