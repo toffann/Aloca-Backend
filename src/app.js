@@ -10,8 +10,13 @@ const { testConnection } = require('./config/database');
 const app = express();
 
 // ── Middleware ────────────────────────────────────────────────────────────────
+
+// Log the CORS_ORIGIN for debugging
+const corsOrigin = process.env.CORS_ORIGIN;
+console.log(`CORS origin configured for: ${corsOrigin || 'ANY (*)'}`);
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: corsOrigin || '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
 app.use(express.json());
